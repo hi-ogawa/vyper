@@ -35,18 +35,22 @@ class Stmt:
         self.lll_node.annotation = self.stmt.get("node_source_code")
 
     def parse_Expr(self):
+        assert isinstance(self.stmt, vy_ast.Expr)
         return Stmt(self.stmt.value, self.context).lll_node
 
     def parse_Pass(self):
+        assert isinstance(self.stmt, vy_ast.Pass)
         return LLLnode.from_list("pass", typ=None, pos=getpos(self.stmt))
 
     def parse_Name(self):
+        assert isinstance(self.stmt, vy_ast.Name)
         if self.stmt.id == "vdb":
             return LLLnode("debugger", typ=None, pos=getpos(self.stmt))
         else:
             raise StructureException(f"Unsupported statement type: {type(self.stmt)}", self.stmt)
 
     def parse_AnnAssign(self):
+        assert isinstance(self.stmt, vy_ast.AnnAssign)
         typ = parse_type(
             self.stmt.annotation,
             custom_structs=self.context.structs,
@@ -86,6 +90,7 @@ class Stmt:
         return lll_node
 
     def parse_Assign(self):
+        assert isinstance(self.stmt, vy_ast.Assign)
         # Assignment (e.g. x[4] = y)
         sub = Expr(self.stmt.value, self.context).lll_node
         target = self._get_target(self.stmt.target)
@@ -95,6 +100,7 @@ class Stmt:
         return lll_node
 
     def parse_If(self):
+        assert isinstance(self.stmt, vy_ast.If)
         if self.stmt.orelse:
             with self.context.block_scope():
                 add_on = [parse_body(self.stmt.orelse, self.context)]
@@ -108,6 +114,7 @@ class Stmt:
         return lll_node
 
     def parse_Log(self):
+        assert isinstance(self.stmt, vy_ast.Log)
         event = self.stmt._metadata["type"]
 
         # do this BEFORE evaluating args to LLL to protect the buffer
@@ -129,6 +136,7 @@ class Stmt:
         )
 
     def parse_Call(self):
+        assert isinstance(self.stmt, vy_ast.Call)
         is_self_function = (
             (isinstance(self.stmt.func, vy_ast.Attribute))
             and isinstance(self.stmt.func.value, vy_ast.Name)
@@ -198,6 +206,7 @@ class Stmt:
         return LLLnode.from_list(lll_node, typ=None, pos=getpos(self.stmt))
 
     def parse_Assert(self):
+        assert isinstance(self.stmt, vy_ast.Assert)
         test_expr = Expr.parse_value_expr(self.stmt.test, self.context)
         if test_expr.typ.is_literal:
             if test_expr.value == 1:
@@ -212,6 +221,7 @@ class Stmt:
             return LLLnode.from_list(["assert", test_expr], typ=None, pos=getpos(self.stmt))
 
     def parse_Raise(self):
+        assert isinstance(self.stmt, vy_ast.Raise)
         if self.stmt.exc:
             return self._assert_reason(None, self.stmt.exc)
         else:
@@ -239,6 +249,7 @@ class Stmt:
         return arg_expr.value
 
     def parse_For(self):
+        assert isinstance(self.stmt, vy_ast.For)
         with self.context.block_scope():
             if self.stmt.get("iter.func.id") == "range":
                 return self._parse_For_range()
@@ -370,6 +381,7 @@ class Stmt:
         return lll_node
 
     def parse_AugAssign(self):
+        assert isinstance(self.stmt, vy_ast.AugAssign)
         target = self._get_target(self.stmt.target)
         sub = Expr.parse_value_expr(self.stmt.value, self.context)
         if not isinstance(target.typ, BaseType):
@@ -412,12 +424,15 @@ class Stmt:
             )
 
     def parse_Continue(self):
+        assert isinstance(self.stmt, vy_ast.Continue)
         return LLLnode.from_list("continue", typ=None, pos=getpos(self.stmt))
 
     def parse_Break(self):
+        assert isinstance(self.stmt, vy_ast.Break)
         return LLLnode.from_list("break", typ=None, pos=getpos(self.stmt))
 
     def parse_Return(self):
+        assert isinstance(self.stmt, vy_ast.Return)
         lll_val = None
         if self.stmt.value is not None:
             lll_val = Expr(self.stmt.value, self.context).lll_node

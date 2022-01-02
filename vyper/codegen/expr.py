@@ -207,6 +207,7 @@ class Expr:
         self.lll_node.annotation = self.expr.get("node_source_code")
 
     def parse_Int(self):
+        assert isinstance(self.expr, vy_ast.Int)
         # Literal (mostly likely) becomes int256
         if self.expr.n < 0:
             return LLLnode.from_list(
@@ -223,6 +224,7 @@ class Expr:
             )
 
     def parse_Decimal(self):
+        assert isinstance(self.expr, vy_ast.Decimal)
         numstring, num, den = get_number_as_fraction(self.expr, self.context)
         if not (SizeLimits.MIN_INT128 * den <= num <= SizeLimits.MAX_INT128 * den):
             return
@@ -235,6 +237,7 @@ class Expr:
         )
 
     def parse_Hex(self):
+        assert isinstance(self.expr, vy_ast.Hex)
         orignum = self.expr.value
         if len(orignum) == 42 and checksum_encode(orignum) == orignum:
             return LLLnode.from_list(
@@ -251,12 +254,14 @@ class Expr:
 
     # String literals
     def parse_Str(self):
+        assert isinstance(self.expr, vy_ast.Str)
         bytez, bytez_length = string_to_bytes(self.expr.value)
         typ = StringType(bytez_length, is_literal=True)
         return self._make_bytelike(typ, bytez, bytez_length)
 
     # Byte literals
     def parse_Bytes(self):
+        assert isinstance(self.expr, vy_ast.Bytes)
         bytez = self.expr.s
         bytez_length = len(self.expr.s)
         typ = ByteArrayType(bytez_length, is_literal=True)
@@ -284,6 +289,7 @@ class Expr:
 
     # True, False, None constants
     def parse_NameConstant(self):
+        assert isinstance(self.expr, vy_ast.NameConstant)
         if self.expr.value is True:
             return LLLnode.from_list(
                 1,
@@ -299,6 +305,7 @@ class Expr:
 
     # Variable names
     def parse_Name(self):
+        assert isinstance(self.expr, vy_ast.Name)
 
         if self.expr.id == "self":
             return LLLnode.from_list(["address"], typ="address", pos=getpos(self.expr))
@@ -355,6 +362,7 @@ class Expr:
 
     # x.y or x[5]
     def parse_Attribute(self):
+        assert isinstance(self.expr, vy_ast.Attribute)
         # x.balance: balance of address x
         if self.expr.attr == "balance":
             addr = Expr.parse_value_expr(self.expr.value, self.context)
@@ -482,6 +490,7 @@ class Expr:
                 return get_element_ptr(sub, self.expr.attr, pos=getpos(self.expr))
 
     def parse_Subscript(self):
+        assert isinstance(self.expr, vy_ast.Subscript)
         sub = Expr(self.expr.value, self.context).lll_node
         if sub.value == "multi":
             # force literal to memory, e.g.
@@ -518,6 +527,7 @@ class Expr:
         return lll_node
 
     def parse_BinOp(self):
+        assert isinstance(self.expr, vy_ast.BinOp)
         left = Expr.parse_value_expr(self.expr.left, self.context)
         right = Expr.parse_value_expr(self.expr.right, self.context)
 
@@ -872,6 +882,7 @@ class Expr:
             return op
 
     def parse_Compare(self):
+        assert isinstance(self.expr, vy_ast.Compare)
         left = Expr.parse_value_expr(self.expr.left, self.context)
         right = Expr.parse_value_expr(self.expr.right, self.context)
 
@@ -952,6 +963,7 @@ class Expr:
         return LLLnode.from_list([op, left, right], typ="bool", pos=getpos(self.expr))
 
     def parse_BoolOp(self):
+        assert isinstance(self.expr, vy_ast.BoolOp)
         for value in self.expr.values:
             # Check for boolean operations with non-boolean inputs
             _expr = Expr.parse_value_expr(value, self.context)
@@ -992,6 +1004,7 @@ class Expr:
 
     # Unary operations (only "not" supported)
     def parse_UnaryOp(self):
+        assert isinstance(self.expr, vy_ast.UnaryOp)
         operand = Expr.parse_value_expr(self.expr.operand, self.context)
         if isinstance(self.expr.op, vy_ast.Not):
             if isinstance(operand.typ, BaseType) and operand.typ.typ == "bool":
@@ -1015,6 +1028,7 @@ class Expr:
 
     # Function calls
     def parse_Call(self):
+        assert isinstance(self.expr, vy_ast.Call)
         # TODO check out this inline import
         from vyper.builtin_functions import DISPATCH_TABLE
 
@@ -1046,6 +1060,7 @@ class Expr:
             return external_call.lll_for_external_call(self.expr, self.context)
 
     def parse_List(self):
+        assert isinstance(self.expr, vy_ast.List)
         multi_lll = [Expr(x, self.context).lll_node for x in self.expr.elements]
 
         # TODO this type inference for out_type is wrong. instead should
@@ -1059,6 +1074,7 @@ class Expr:
         return LLLnode.from_list(["multi"] + multi_lll, typ=typ, pos=getpos(self.expr))
 
     def parse_Tuple(self):
+        assert isinstance(self.expr, vy_ast.Tuple)
         tuple_elements = [Expr(x, self.context).lll_node for x in self.expr.elements]
         typ = TupleType([x.typ for x in tuple_elements], is_literal=True)
         multi_lll = LLLnode.from_list(["multi"] + tuple_elements, typ=typ, pos=getpos(self.expr))
