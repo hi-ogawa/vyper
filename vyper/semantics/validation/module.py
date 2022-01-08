@@ -142,13 +142,13 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
 
             self_members[fn_name].recursive_calls = function_set
 
-    def visit_AnnAssign(self, node):
+    def visit_AnnAssign(self, node: vy_ast.AnnAssign) -> None:
         name = node.get("target.id")
         if name is None:
             raise VariableDeclarationException("Invalid module-level assignment", node)
 
         if name == "implements":
-            interface_name = node.annotation.id
+            interface_name = node.annotation.id  # type: ignore[attr-defined]
             self.namespace[interface_name].validate_implements(node)
             return
 
@@ -234,7 +234,7 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
             return
 
         try:
-            self.namespace.validate_assignment(name)
+            self.namespace.validate_assignment(name)  # type: ignore[attr-defined]
         except NamespaceCollision as exc:
             raise exc.with_annotation(node) from None
         try:
@@ -245,14 +245,14 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
         except VyperException as exc:
             raise exc.with_annotation(node) from None
 
-    def visit_EventDef(self, node):
+    def visit_EventDef(self, node: vy_ast.EventDef) -> None:
         obj = Event.from_EventDef(node)
         try:
             self.namespace[node.name] = obj
         except VyperException as exc:
             raise exc.with_annotation(node) from None
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node: vy_ast.FunctionDef) -> None:
         func = ContractFunction.from_FunctionDef(node)
 
         try:
@@ -261,7 +261,7 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
         except VyperException as exc:
             raise exc.with_annotation(node) from None
 
-    def visit_Import(self, node):
+    def visit_Import(self, node: vy_ast.Import) -> None:
         if not node.alias:
             raise StructureException(
                 "Import requires an accompanying `as` statement",
@@ -269,7 +269,7 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
             )
         _add_import(node, node.name, node.alias, node.alias, self.interface_codes, self.namespace)
 
-    def visit_ImportFrom(self, node):
+    def visit_ImportFrom(self, node: vy_ast.ImportFrom) -> None:
         _add_import(
             node,
             node.module,
@@ -279,14 +279,14 @@ class ModuleNodeVisitor(VyperNodeVisitorBase):
             self.namespace,
         )
 
-    def visit_InterfaceDef(self, node):
+    def visit_InterfaceDef(self, node: vy_ast.InterfaceDef) -> None:
         obj = self.namespace["interface"].build_primitive_from_node(node)
         try:
             self.namespace[node.name] = obj
         except VyperException as exc:
             raise exc.with_annotation(node) from None
 
-    def visit_StructDef(self, node):
+    def visit_StructDef(self, node: vy_ast.StructDef) -> None:
         obj = self.namespace["struct"].build_primitive_from_node(node)
         try:
             self.namespace[node.name] = obj

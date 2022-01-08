@@ -207,7 +207,7 @@ class BasePrimitive:
         raise StructureException("Type is not callable", node)
 
     @classmethod
-    def get_index_type(self, node: vy_ast.Index) -> None:
+    def get_index_type(self, node: vy_ast.Constant) -> None:
         # always raises - do not implement in inherited classes
         raise StructureException("Types cannot be indexed", node)
 
@@ -395,14 +395,14 @@ class BaseTypeDefinition:
         """
         raise StructureException("Value is not callable", node)
 
-    def get_index_type(self, node: vy_ast.Index) -> "BaseTypeDefinition":
+    def get_index_type(self, node: vy_ast.Constant) -> "BaseTypeDefinition":
         """
         Validate an index reference and return the given type at the index.
 
         Arguments
         ---------
         node : Index
-            Vyper ast node from the `slice` member of a Subscript node.
+            Vyper ast node from the `slice.value` of a Subscript node.
 
         Returns
         -------

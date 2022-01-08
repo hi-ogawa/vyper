@@ -1,3 +1,5 @@
+from typing import Any, ClassVar, Tuple, Type
+
 from vyper import ast as vy_ast
 from vyper.exceptions import StructureException
 from vyper.semantics.types import ArrayDefinition
@@ -13,6 +15,7 @@ from vyper.semantics.validation.utils import (
 
 
 class _AnnotationVisitorBase:
+    ignored_types: ClassVar[Tuple[Type[vy_ast.VyperNode], ...]]
 
     """
     Annotation visitor base class.
@@ -23,7 +26,7 @@ class _AnnotationVisitorBase:
     `ExpressionAnnotationVisitor` for additional annotation.
     """
 
-    def visit(self, node, *args):
+    def visit(self, node: vy_ast.VyperNode, *args: Any) -> None:
         if isinstance(node, self.ignored_types):
             return
         # iterate over the MRO until we find a matching visitor function
@@ -52,47 +55,47 @@ class StatementAnnotationVisitor(_AnnotationVisitorBase):
         self.namespace = namespace
         self.expr_visitor = ExpressionAnnotationVisitor()
 
-    def visit(self, node):
+    def visit(self, node: vy_ast.VyperNode) -> None:  # type: ignore[override]
         super().visit(node)
 
-    def visit_Attribute(self, node):
+    def visit_Attribute(self, node: vy_ast.Attribute) -> None:
         # NOTE: required for msg.data node, removing borks and results in
         # vyper.exceptions.StructureException: Cannot annotate: Attribute
         pass
 
-    def visit_AnnAssign(self, node):
+    def visit_AnnAssign(self, node: vy_ast.AnnAssign) -> None:
         type_ = get_exact_type_from_node(node.target)
         self.expr_visitor.visit(node.target, type_)
         self.expr_visitor.visit(node.value, type_)
 
-    def visit_Assert(self, node):
+    def visit_Assert(self, node: vy_ast.Assert) -> None:
         self.expr_visitor.visit(node.test)
 
-    def visit_Assign(self, node):
+    def visit_Assign(self, node: vy_ast.Assign) -> None:
         type_ = get_exact_type_from_node(node.target)
         self.expr_visitor.visit(node.target, type_)
         self.expr_visitor.visit(node.value, type_)
 
-    def visit_AugAssign(self, node):
+    def visit_AugAssign(self, node: vy_ast.AugAssign) -> None:
         type_ = get_exact_type_from_node(node.target)
         self.expr_visitor.visit(node.target, type_)
         self.expr_visitor.visit(node.value, type_)
 
-    def visit_Expr(self, node):
+    def visit_Expr(self, node: vy_ast.Expr) -> None:
         self.expr_visitor.visit(node.value)
 
-    def visit_If(self, node):
+    def visit_If(self, node: vy_ast.If) -> None:
         self.expr_visitor.visit(node.test)
 
-    def visit_Log(self, node):
-        node._metadata["type"] = self.namespace[node.value.func.id]
+    def visit_Log(self, node: vy_ast.Log) -> None:
+        node._metadata["type"] = self.namespace[node.value.func.id]  # type: ignore[attr-defined]
         self.expr_visitor.visit(node.value)
 
-    def visit_Return(self, node):
+    def visit_Return(self, node: vy_ast.Return) -> None:
         if node.value is not None:
             self.expr_visitor.visit(node.value, self.func.return_type)
 
-    def visit_For(self, node):
+    def visit_For(self, node: vy_ast.For) -> None:
         if isinstance(node.iter, (vy_ast.Name, vy_ast.Attribute)):
             self.expr_visitor.visit(node.iter)
         # typecheck list literal as static array
@@ -106,16 +109,16 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
 
     ignored_types = ()
 
-    def visit(self, node, type_=None):
+    def visit(self, node: vy_ast.VyperNode, type_: Any = None) -> None:  # type: ignore[override]
         # the statement visitor sometimes passes type information about expressions
         super().visit(node, type_)
 
-    def visit_Attribute(self, node, type_):
+    def visit_Attribute(self, node: vy_ast.Attribute, type_: Any) -> None:
         base_type = get_exact_type_from_node(node.value)
         node._metadata["type"] = base_type.get_member(node.attr, None)
         self.visit(node.value, None)
 
-    def visit_BinOp(self, node, type_):
+    def visit_BinOp(self, node: vy_ast.BinOp, type_: Any) -> None:
         if type_ is None:
             type_ = get_common_types(node.left, node.right)
             if len(type_) == 1:
@@ -124,11 +127,11 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
         self.visit(node.left, type_)
         self.visit(node.right, type_)
 
-    def visit_BoolOp(self, node, type_):
+    def visit_BoolOp(self, node: vy_ast.BoolOp, type_: Any) -> None:
         for value in node.values:
             self.visit(value)
 
-    def visit_Call(self, node, type_):
+    def visit_Call(self, node: vy_ast.Call, type_: Any) -> None:
         call_type = get_exact_type_from_node(node.func)
         node._metadata["type"] = type_ or call_type.fetch_call_return(node)
         self.visit(node.func)
@@ -148,7 +151,7 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
             for kwarg in node.keywords:
                 self.visit(kwarg.value, None)
 
-    def visit_Compare(self, node, type_):
+    def visit_Compare(self, node: vy_ast.Compare, type_: Any) -> None:
         if isinstance(node.op, (vy_ast.In, vy_ast.NotIn)):
             if isinstance(node.right, vy_ast.List):
                 type_ = get_common_types(node.left, *node.right.elements).pop()
@@ -164,16 +167,16 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
             self.visit(node.left, type_)
             self.visit(node.right, type_)
 
-    def visit_Constant(self, node, type_):
+    def visit_Constant(self, node: vy_ast.Constant, type_: Any) -> None:
         node._metadata["type"] = type_
 
-    def visit_Dict(self, node, type_):
+    def visit_Dict(self, node: vy_ast.Dict, type_: Any) -> None:
         node._metadata["type"] = type_
 
-    def visit_Index(self, node, type_):
+    def visit_Index(self, node: vy_ast.Index, type_: Any) -> None:
         self.visit(node.value, type_)
 
-    def visit_List(self, node, type_):
+    def visit_List(self, node: vy_ast.List, type_: Any) -> None:
         if not node.elements:
             return
         if type_ is None:
@@ -184,10 +187,10 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
         for element in node.elements:
             self.visit(element, type_.value_type)
 
-    def visit_Name(self, node, type_):
+    def visit_Name(self, node: vy_ast.Name, type_: Any) -> None:
         node._metadata["type"] = get_exact_type_from_node(node)
 
-    def visit_Subscript(self, node, type_):
+    def visit_Subscript(self, node: vy_ast.Subscript, type_: Any) -> None:
         if isinstance(node.value, vy_ast.List):
             possible_base_types = get_possible_types_from_node(node.value)
 
@@ -208,12 +211,12 @@ class ExpressionAnnotationVisitor(_AnnotationVisitorBase):
             self.visit(node.slice, base_type.get_index_type(node.slice.value))
         self.visit(node.value, base_type)
 
-    def visit_Tuple(self, node, type_):
+    def visit_Tuple(self, node: vy_ast.Tuple, type_: Any) -> None:
         node._metadata["type"] = type_
         for element, subtype in zip(node.elements, type_.value_type):
             self.visit(element, subtype)
 
-    def visit_UnaryOp(self, node, type_):
+    def visit_UnaryOp(self, node: vy_ast.UnaryOp, type_: Any) -> None:
         if type_ is None:
             type_ = get_possible_types_from_node(node.operand)
             if len(type_) == 1:
